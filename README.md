@@ -1,6 +1,16 @@
 # Collage
 
-Client-only Instagram collage editor. React, TypeScript, Vite, Konva. No accounts or backend.
+Local, client-only slideshow creator
+
+<img src="_gh_images/main-page.png" width="90%" />
+
+## The Story
+
+The app I used for making my Instagram slides went to a really shit freemium model that limited users to 5 slides per carousel. I didn't like that. Good thing that code is free nowadays.
+
+I decided to make _collage_, a free, open-source slideshow creator. Because fuck paying for stuff lol
+
+
 
 ## Run
 
