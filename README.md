@@ -23,6 +23,36 @@ npm run dev
 
 `npm run build` type-checks and builds `dist/`. `npm run preview` serves the production build. Deploy `dist/` to any static host.
 
+## Deployment
+
+Production: https://collage.gabech.com.
+
+Push a version tag to deploy the tagged commit through `.github/workflows/deploy.yml`:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Tags matching `v[0-9]*` deploy (for example, `v1` or `v1.0.0`); ordinary branch pushes do not. Commit and push the app changes you want to release before tagging. The workflow also supports **Run workflow** in GitHub Actions for a manual deployment of the selected ref.
+
+Actions uses Node 22, runs `npm ci` and `npm run build`, then syncs `dist/` to `/srv/collage/dist/` on Hetzner over SSH. Deployments are serialized; stale files are removed after transfer. It verifies the public HTML and a JavaScript asset against the build. Caddy serves the static files directly and manages HTTPS; no app process or restart is needed.
+
+Repository Actions secrets: `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_KEY`, and `VPS_KNOWN_HOSTS`. The SSH key follows the portfolio deployment setup; the pinned host key comes from Hetzner's SSH host key. `/srv/collage/dist/` must be writable by the deployment user and readable by Caddy.
+
+The server's `/etc/caddy/Caddyfile` includes:
+
+```caddyfile
+collage.gabech.com {
+	root * /srv/collage/dist
+	@html path / /index.html
+	header @html Cache-Control "no-cache"
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	file_server
+}
+```
+
 ## Controls
 
 - Upload with the file picker or file drag/drop. Photos stay in the bottom tray; uploads never place them automatically.

@@ -1,0 +1,68 @@
+name: Deploy to Hetzner
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collage-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+    steps:
+      - name: Checkout release
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Deploy static site
+        run: |
+          rsync --archive --compress --delay-updates --delete-delay \
+            --chmod=D755,F644 \
+            -e 'ssh -o BatchMode=yes -o StrictHostKeyChecking=yes' \
+            dist/ "$VPS_USERNAME@$VPS_HOST:/srv/collage/dist/"
+
+      - name: Verify deployment
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            https://collage.gabech.com/ --output deployed-index.html
+          cmp dist/index.html deployed-index.html
+          asset=$(find dist/assets -maxdepth 1 -name '*.js' -print -quit)
+          curl --fail --silent --show-error --max-time 30 \
+            "https://collage.gabech.com/${asset#dist/}" --output deployed-asset.js
+          cmp "$asset" deployed-asset.js
+
+      - name: Remove SSH credentials
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts
