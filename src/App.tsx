@@ -297,7 +297,7 @@ export default function App() {
           </div>
           <div className="history-actions"><IconButton label="Undo (⌘Z)" disabled={!canUndo || busy} onClick={() => dispatch({ type: 'undo' })}><Undo2 size={16} /></IconButton><IconButton label="Redo (⇧⌘Z)" disabled={!canRedo || busy} onClick={() => dispatch({ type: 'redo' })}><Redo2 size={16} /></IconButton><span className="toolbar-divider" /><span className="dimensions">1080 × {height}</span></div>
         </div>
-        {slidesOpen && <SlideReorder slides={project.slides} disabled={busy} onReorder={(from, to) => change((current) => reorderSlides(current, from, to))}
+        {slidesOpen && <SlideReorder project={project} photos={photos} disabled={busy} onReorder={(from, to) => change((current) => reorderSlides(current, from, to))}
           onClose={() => { setSlidesOpen(false); slideReorderTriggerRef.current?.focus(); }} />}
         {(error || storageError) && <div className="error-banner" role="alert"><span>{error || storageError}</span>{error && <IconButton label="Dismiss error" onClick={() => setError('')}><X size={14} /></IconButton>}</div>}
         <div className="canvas-area"><div className="canvas-heading"><span>{project.slides} slides · {project.aspect === 'portrait' ? '4:5' : '1:1'}</span></div>

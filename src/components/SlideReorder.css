@@ -16,22 +16,17 @@
   scrollbar-width: thin;
 }
 
-.slide-reorder-item { display: flex; flex: 0 0 auto; align-items: stretch; min-height: 32px; border: 1px solid var(--line); background: var(--surface); position: relative; }
-.slide-reorder-item[draggable="true"] { cursor: grab; }
+.slide-reorder-item { flex: 0 0 auto; position: relative; }
+.slide-reorder-button[draggable="true"] { cursor: grab; }
 .slide-reorder-item[data-dragging] { opacity: .45; }
 .slide-reorder-item[data-drop="before"] { box-shadow: -4px 0 var(--accent); }
 .slide-reorder-item[data-drop="after"] { box-shadow: 4px 0 var(--accent); }
-.slide-reorder-label { display: flex; align-items: center; gap: 5px; padding: 0 7px; white-space: nowrap; user-select: none; }
-.slide-reorder-label > svg { flex: 0 0 auto; color: var(--muted); }
-.slide-reorder-number { min-width: 15px; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
+.slide-reorder-button { display: flex; flex-direction: column; gap: 4px; padding: 2px; border: 1px solid transparent; background: transparent; user-select: none; touch-action: none; }
+.slide-reorder-button:hover { background: var(--surface); border-color: var(--line); }
+.slide-reorder-button:focus-visible { outline-offset: 0; }
+.slide-reorder-number { color: var(--muted); text-align: center; font-size: 10px; line-height: 12px; font-variant-numeric: tabular-nums; }
+.slide-thumbnail { display: block; pointer-events: none; outline: 1px solid var(--line); }
 
-.slide-reorder .slide-reorder-arrow { display: grid; place-items: center; min-width: 28px; min-height: 32px; margin: 0; padding: 0 4px; border: 0; background: transparent; color: var(--text); }
-.slide-reorder .slide-reorder-arrow:hover:not(:disabled) { background: var(--line); }
-.slide-reorder .slide-reorder-arrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-
-@media (pointer: coarse) {
-  .slide-reorder .slide-reorder-arrow { min-width: 36px; min-height: 40px; }
-}
 
 @media (max-width: 760px) {
   .slide-reorder-trigger { padding: 6px; }

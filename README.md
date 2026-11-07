@@ -70,7 +70,7 @@ collage.gabech.com {
 - Wheel or trackpad pinch zooms around the pointer; touch pinch zooms around its midpoint. Shift-scroll or horizontal trackpad scroll pans horizontally. Each wheel gesture stays in one mode despite diagonal noise; it never also scrolls vertically. Touch-drag empty canvas to pan. Fit shows the whole strip (minimum 10% zoom).
 - Arrow keys nudge selection; Shift moves 10px. Delete removes it. Cmd/Ctrl+Z undoes; Shift+Cmd/Ctrl+Z redoes.
 - Slides: 1–20. Portrait: 1080×1350; square: 1080×1080. Shrinking the strip hides out-of-bounds artwork; increasing it reveals it again.
-- Reorder slides toggles a compact toolbar below the editor controls, not a modal. Drag individual slides or use the arrows; the workspace stays usable.
+- Reorder slides toggles an inline toolbar with each slide number above its thumbnail—no modal or arrow buttons. Drag thumbnails to reorder, including on touch; dragging near an edge scrolls the strip. Keyboard: focus a thumbnail and use Left/Right.
 - Every slide reorders independently. Photos follow the slide containing their visual centre; groups use the centre of their combined bounds and move together, including hidden/locked members. Crossing photos stay whole, so overlaps can change. Crop, size, rotation, stacking and grouping stay unchanged; one Undo restores the move. Centres on a seam use the slide to its right; off-strip centres use the nearest edge.
 - Projects opens the project list: create, switch, rename, duplicate or delete. Edits save before switching; Undo history is scoped to the open project. Duplicates share originals until a photo is replaced.
 - Export project backup saves an editable ZIP with all originals, staged photos, placements and settings. It also works with unsaved edits after a storage error. Import backup creates a separate project and leaves existing projects intact.
@@ -92,6 +92,7 @@ Deleted sources remain available for the current tab's Undo history. On the next
 - `src/backup.ts`: full-original editable ZIP export/import with source-ID remapping.
 - `src/selection.ts`, `src/slides.ts`, `src/replacement.ts`: grouped geometry, independent centre-based slide movement and frame-preserving source replacement.
 - `src/components/ProjectManager.tsx`, `src/components/SlideReorder.tsx`: on-demand project dialog and inline slide toolbar.
+- `src/components/SlideThumbnail.tsx`: SVG slide composites using existing 192px source thumbnails, including crops, rotation, stacking, backgrounds and visibility.
 - `src/components/LayersPanel.tsx`, `src/components/SelectionToolbar.tsx`: shared layer/selection controls.
 - `src/components/CollageCanvas.tsx`: viewport-sized, offscreen-culled rendering, transforms, snapping and zoom.
 - `src/components/CropHandles.tsx`: direct edge cropping with live preview and a single undo step per drag.
