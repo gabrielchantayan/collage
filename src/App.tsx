@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpRight, Check, ChevronDown, Copy, Crop, Download, Eye, EyeOff, Group, ImagePlus, Layers, Loader2, Lock, LockOpen, Minus, Plus, Redo2, Trash2, Undo2, Ungroup, X } from 'lucide-react';
+import { ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpRight, Check, ChevronDown, Copy, Crop, Download, Eye, EyeOff, Group, ImagePlus, Layers, Loader2, Lock, LockOpen, Minus, Plus, Redo2, Trash2, Undo2, Ungroup, X } from 'lucide-react';
 import CollageCanvas, { type CanvasHandle } from './components/CollageCanvas';
 import ExportDialog from './components/ExportDialog';
 import { IconButton } from './components/Controls';
@@ -28,6 +28,7 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [multiSelect, setMultiSelect] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
+  const [slidesOpen, setSlidesOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [zoom, setZoom] = useState(() => window.innerWidth < 700 ? 0.23 : 0.28);
   const [importing, setImporting] = useState(false);
@@ -39,6 +40,7 @@ export default function App() {
   const replaceTarget = useRef<{ projectId: string; photoId: string } | null>(null);
   const workspaceRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<CanvasHandle>(null);
+  const slideReorderTriggerRef = useRef<HTMLButtonElement>(null);
   const importLock = useRef(false);
   const photos = useMemo(() => resolvePhotos(project), [project.assets, project.photos]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -85,7 +87,7 @@ export default function App() {
     setSelectedIds((current) => current.filter((id) => !removed.has(id)));
   }, [change]);
 
-  useEffect(() => { setSelectedIds([]); setMenu(null); setLayersOpen(false); setError(''); }, [projectId]);
+  useEffect(() => { setSelectedIds([]); setMenu(null); setLayersOpen(false); setSlidesOpen(false); setError(''); }, [projectId]);
   useEffect(() => {
     const editable = new Set(project.photos.filter((photo) => !photo.locked && !photo.hidden).map((photo) => photo.id));
     setSelectedIds((current) => current.every((id) => editable.has(id)) ? current : current.filter((id) => editable.has(id)));
@@ -290,10 +292,13 @@ export default function App() {
       <main className="workspace" ref={workspaceRef}>
         <div className="workspace-toolbar">
           <div className="editor-mode"><span className="workspace-breadcrumb">Editor</span><button className="multi-select-toggle" aria-pressed={multiSelect} onClick={() => setMultiSelect(!multiSelect)}><Copy size={13} />Multi-select</button>
-            <SlideReorder project={project} disabled={busy} onReorder={(from, to) => change((current) => reorderSlides(current, from, to))} />
+            <button ref={slideReorderTriggerRef} className="slide-reorder-trigger" disabled={busy} aria-label="Reorder slides" title="Reorder slides"
+              aria-controls="slide-reorder" aria-expanded={slidesOpen} onClick={() => setSlidesOpen(!slidesOpen)}><ArrowLeftRight size={14} /><span>Reorder slides</span></button>
           </div>
           <div className="history-actions"><IconButton label="Undo (⌘Z)" disabled={!canUndo || busy} onClick={() => dispatch({ type: 'undo' })}><Undo2 size={16} /></IconButton><IconButton label="Redo (⇧⌘Z)" disabled={!canRedo || busy} onClick={() => dispatch({ type: 'redo' })}><Redo2 size={16} /></IconButton><span className="toolbar-divider" /><span className="dimensions">1080 × {height}</span></div>
         </div>
+        {slidesOpen && <SlideReorder slides={project.slides} disabled={busy} onReorder={(from, to) => change((current) => reorderSlides(current, from, to))}
+          onClose={() => { setSlidesOpen(false); slideReorderTriggerRef.current?.focus(); }} />}
         {(error || storageError) && <div className="error-banner" role="alert"><span>{error || storageError}</span>{error && <IconButton label="Dismiss error" onClick={() => setError('')}><X size={14} /></IconButton>}</div>}
         <div className="canvas-area"><div className="canvas-heading"><span>{project.slides} slides · {project.aspect === 'portrait' ? '4:5' : '1:1'}</span></div>
           <CollageCanvas key={projectId} ref={canvasRef} project={project} photos={photos} selectedIds={selectedIds} onSelect={setSelectedIds} onPhotosChange={updatePhotos} multiSelect={multiSelect} onContextMenu={openPhotoMenu} zoom={zoom} onZoomChange={setZoom} onInsert={insertPhoto} />

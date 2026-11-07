@@ -70,7 +70,8 @@ collage.gabech.com {
 - Wheel or trackpad pinch zooms around the pointer; touch pinch zooms around its midpoint. Shift-scroll or horizontal trackpad scroll pans horizontally. Each wheel gesture stays in one mode despite diagonal noise; it never also scrolls vertically. Touch-drag empty canvas to pan. Fit shows the whole strip (minimum 10% zoom).
 - Arrow keys nudge selection; Shift moves 10px. Delete removes it. Cmd/Ctrl+Z undoes; Shift+Cmd/Ctrl+Z redoes.
 - Slides: 1–20. Portrait: 1080×1350; square: 1080×1080. Shrinking the strip hides out-of-bounds artwork; increasing it reveals it again.
-- Reorder slides opens an on-demand dialog with drag handles and arrow controls; no permanent reorder bar. Crossing photos and persistent groups link slides into blocks that move together, including hidden/locked layers. Crops, rotations and stacking stay unchanged. Rotated bounds link conservatively rather than risk splitting artwork; off-strip photos follow their nearest edge slide.
+- Reorder slides toggles a compact toolbar below the editor controls, not a modal. Drag individual slides or use the arrows; the workspace stays usable.
+- Every slide reorders independently. Photos follow the slide containing their visual centre; groups use the centre of their combined bounds and move together, including hidden/locked members. Crossing photos stay whole, so overlaps can change. Crop, size, rotation, stacking and grouping stay unchanged; one Undo restores the move. Centres on a seam use the slide to its right; off-strip centres use the nearest edge.
 - Projects opens the project list: create, switch, rename, duplicate or delete. Edits save before switching; Undo history is scoped to the open project. Duplicates share originals until a photo is replaced.
 - Export project backup saves an editable ZIP with all originals, staged photos, placements and settings. It also works with unsaved edits after a storage error. Import backup creates a separate project and leaves existing projects intact.
 - Export numbered PNGs individually or in a ZIP. Native file sharing is offered when supported; saving directly to Photos depends on the device/browser. Downloads save PNG files; preview images also support long-press saving.
@@ -89,8 +90,8 @@ Deleted sources remain available for the current tab's Undo history. On the next
 - `src/storage.ts`: atomic project catalog/source transactions, legacy migration and cross-project unused-source cleanup.
 - `src/useProject.ts`: project-scoped undo/redo, serialized project operations and local persistence.
 - `src/backup.ts`: full-original editable ZIP export/import with source-ID remapping.
-- `src/selection.ts`, `src/slides.ts`, `src/replacement.ts`: grouped geometry, seam-safe slide movement and frame-preserving source replacement.
-- `src/components/ProjectManager.tsx`, `src/components/SlideReorder.tsx`: on-demand project and slide dialogs.
+- `src/selection.ts`, `src/slides.ts`, `src/replacement.ts`: grouped geometry, independent centre-based slide movement and frame-preserving source replacement.
+- `src/components/ProjectManager.tsx`, `src/components/SlideReorder.tsx`: on-demand project dialog and inline slide toolbar.
 - `src/components/LayersPanel.tsx`, `src/components/SelectionToolbar.tsx`: shared layer/selection controls.
 - `src/components/CollageCanvas.tsx`: viewport-sized, offscreen-culled rendering, transforms, snapping and zoom.
 - `src/components/CropHandles.tsx`: direct edge cropping with live preview and a single undo step per drag.
