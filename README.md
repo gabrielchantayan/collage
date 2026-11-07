@@ -38,7 +38,7 @@ Tags matching `v[0-9]*` deploy (for example, `v1` or `v1.0.0`); ordinary branch 
 
 Actions uses Node 22, runs `npm ci` and `npm run build`, then syncs `dist/` to `/srv/collage/dist/` on Hetzner over SSH. Deployments are serialized; stale files are removed after transfer. It verifies the public HTML and a JavaScript asset against the build. Caddy serves the static files directly and manages HTTPS; no app process or restart is needed.
 
-Repository Actions secrets: `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_KEY`, and `VPS_KNOWN_HOSTS`. The SSH key follows the portfolio deployment setup; the pinned host key comes from Hetzner's SSH host key. `/srv/collage/dist/` must be writable by the deployment user and readable by Caddy.
+Repository Actions secrets: `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_KEY`, and `VPS_KNOWN_HOSTS`. Collage uses a dedicated SSH key authorized as `github-actions-collage` on Hetzner with forwarding and PTY disabled; the pinned host key comes from Hetzner's SSH host key. `/srv/collage/dist/` must be writable by the deployment user and readable by Caddy.
 
 The server's `/etc/caddy/Caddyfile` includes:
 
