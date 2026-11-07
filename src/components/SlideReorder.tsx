@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { Project, ResolvedPhoto } from '../model';
+import type { ClientPoint } from './PhotoTray';
 import { IconButton } from './Controls';
 import SlideThumbnail from './SlideThumbnail';
 import './SlideReorder.css';
@@ -9,6 +10,7 @@ interface Props {
   project: Project;
   photos: ResolvedPhoto[];
   onReorder: (fromSlide: number, toSlide: number) => void;
+  onContextMenu: (index: number, point: ClientPoint) => void;
   onClose: () => void;
   disabled?: boolean;
 }
@@ -27,7 +29,7 @@ interface TouchDrag {
 
 const SLIDE_DRAG_TYPE = 'application/x-collage-slide';
 
-export default function SlideReorder({ project, photos, onReorder, onClose, disabled = false }: Props) {
+export default function SlideReorder({ project, photos, onReorder, onContextMenu, onClose, disabled = false }: Props) {
   const [dragged, setDragged] = useState<number | null>(null);
   const [target, setTarget] = useState<number | null>(null);
   const listRef = useRef<HTMLOListElement>(null);
@@ -73,6 +75,15 @@ export default function SlideReorder({ project, photos, onReorder, onClose, disa
       {Array.from({ length: slides }, (_, index) => <li key={index} className="slide-reorder-item"
         data-dragging={dragged === index || undefined}
         data-drop={target === index ? (dragged !== null && dragged < index ? 'after' : 'before') : undefined}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          if (disabled) return;
+          finishTouch(false);
+          const button = event.currentTarget.querySelector('button')!;
+          button.focus({ preventScroll: true });
+          const rect = button.getBoundingClientRect();
+          onContextMenu(index, { x: event.clientX || rect.left, y: event.clientY || rect.bottom });
+        }}
         onDragStart={(event) => {
           if (disabled) { event.preventDefault(); return; }
           event.dataTransfer.setData(SLIDE_DRAG_TYPE, String(index));
@@ -98,8 +109,16 @@ export default function SlideReorder({ project, photos, onReorder, onClose, disa
         }}
         onDragEnd={() => { setDragged(null); setTarget(null); }}>
         <button type="button" className="slide-reorder-button" data-slide-index={index} aria-label={`Slide ${index + 1}`}
-          aria-description="Drag to reorder, or use the left and right arrow keys." disabled={disabled} draggable={!disabled && slides > 1}
+          aria-description="Drag to reorder; Left/Right to move. Right-click or Shift+F10 for slide actions." aria-haspopup="menu" disabled={disabled} draggable={!disabled && slides > 1}
           onKeyDown={(event) => {
+            if (event.key === 'ContextMenu' || event.shiftKey && event.key === 'F10') {
+              event.preventDefault();
+              event.stopPropagation();
+              finishTouch(false);
+              const rect = event.currentTarget.getBoundingClientRect();
+              onContextMenu(index, { x: rect.left, y: rect.bottom });
+              return;
+            }
             if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
             event.preventDefault();
             event.stopPropagation();

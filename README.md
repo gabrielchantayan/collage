@@ -72,6 +72,7 @@ collage.gabech.com {
 - Slides: 1–20. Portrait: 1080×1350; square: 1080×1080. Shrinking the strip hides out-of-bounds artwork; increasing it reveals it again.
 - Reorder slides toggles an inline toolbar with each slide number above its thumbnail—no modal or arrow buttons. Drag thumbnails to reorder, including on touch; dragging near an edge scrolls the strip. Keyboard: focus a thumbnail and use Left/Right.
 - Every slide reorders independently. Photos follow the slide containing their visual centre; groups use the centre of their combined bounds and move together, including hidden/locked members. Crossing photos stay whole, so overlaps can change. Crop, size, rotation, stacking and grouping stay unchanged; one Undo restores the move. Centres on a seam use the slide to its right; off-strip centres use the nearest edge.
+- Right-click a slide thumbnail (or focus it and press Shift+F10) for Delete slide. Uses the same centre-based ownership: removes that slide's photo placements and whole groups, including hidden/locked members, then shifts later slides left. Uploaded originals stay available; one Undo restores everything. The final slide cannot be deleted.
 - Projects opens the project list: create, switch, rename, duplicate or delete. Edits save before switching; Undo history is scoped to the open project. Duplicates share originals until a photo is replaced.
 - Export project backup saves an editable ZIP with all originals, staged photos, placements and settings. It also works with unsaved edits after a storage error. Import backup creates a separate project and leaves existing projects intact.
 - Export numbered PNGs individually or in a ZIP. Native file sharing is offered when supported; saving directly to Photos depends on the device/browser. Downloads save PNG files; preview images also support long-press saving.
@@ -90,14 +91,14 @@ Deleted sources remain available for the current tab's Undo history. On the next
 - `src/storage.ts`: atomic project catalog/source transactions, legacy migration and cross-project unused-source cleanup.
 - `src/useProject.ts`: project-scoped undo/redo, serialized project operations and local persistence.
 - `src/backup.ts`: full-original editable ZIP export/import with source-ID remapping.
-- `src/selection.ts`, `src/slides.ts`, `src/replacement.ts`: grouped geometry, independent centre-based slide movement and frame-preserving source replacement.
+- `src/selection.ts`, `src/slides.ts`, `src/replacement.ts`: grouped geometry, centre-based slide reordering/deletion and frame-preserving source replacement.
 - `src/components/ProjectManager.tsx`, `src/components/SlideReorder.tsx`: on-demand project dialog and inline slide toolbar.
 - `src/components/SlideThumbnail.tsx`: SVG slide composites using existing 192px source thumbnails, including crops, rotation, stacking, backgrounds and visibility.
 - `src/components/LayersPanel.tsx`, `src/components/SelectionToolbar.tsx`: shared layer/selection controls.
 - `src/components/CollageCanvas.tsx`: viewport-sized, offscreen-culled rendering, transforms, snapping and zoom.
 - `src/components/CropHandles.tsx`: direct edge cropping with live preview and a single undo step per drag.
 - `src/components/PhotoTray.tsx`: windowed upload library, filtering, sorting, insertion, deletion and desktop/touch dragging.
-- `src/components/ContextMenu.tsx`: shared, viewport-clamped keyboard-accessible photo actions.
+- `src/components/ContextMenu.tsx`: shared, viewport-clamped keyboard-accessible photo and slide actions.
 - `src/export.ts`: sequential full-resolution slide rendering, bounded decoded-source cache and ZIP generation.
 - `src/components/ExportDialog.tsx`: previews, native sharing, individual downloads.
 

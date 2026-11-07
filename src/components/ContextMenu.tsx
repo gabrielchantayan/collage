@@ -13,19 +13,20 @@ export interface MenuAction {
 }
 
 interface Props {
+  label: string;
   point: ClientPoint;
   actions: MenuAction[];
   onClose: () => void;
 }
 
-export default function ContextMenu({ point, actions, onClose }: Props) {
+export default function ContextMenu({ label, point, actions, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const menu = ref.current!;
     const previousFocus = document.activeElement;
     menu.style.left = `${Math.max(8, Math.min(point.x, window.innerWidth - menu.offsetWidth - 8))}px`;
     menu.style.top = `${Math.max(8, Math.min(point.y, window.innerHeight - menu.offsetHeight - 8))}px`;
-    menu.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true });
+    (menu.querySelector<HTMLButtonElement>('button:not(:disabled)') ?? menu).focus({ preventScroll: true });
     const outside = (event: PointerEvent) => { if (!menu.contains(event.target as Node)) onClose(); };
     document.addEventListener('pointerdown', outside, true);
     window.addEventListener('resize', onClose);
@@ -40,7 +41,7 @@ export default function ContextMenu({ point, actions, onClose }: Props) {
     };
   }, [point.x, point.y, onClose]);
 
-  return createPortal(<div ref={ref} className="context-menu" role="menu" aria-label="Photo actions"
+  return createPortal(<div ref={ref} className="context-menu" role="menu" aria-label={label} tabIndex={-1}
     style={{ left: point.x, top: point.y }} onContextMenu={(event) => event.preventDefault()}
     onKeyDown={(event) => {
       event.stopPropagation();
@@ -48,6 +49,7 @@ export default function ContextMenu({ point, actions, onClose }: Props) {
       if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
       const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+      if (items.length === 0) return;
       const index = items.indexOf(document.activeElement as HTMLButtonElement);
       const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
       items[next]?.focus();

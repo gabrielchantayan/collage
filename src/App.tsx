@@ -14,7 +14,7 @@ import type { ImageAsset, Photo, Project } from './model';
 import { restorePhotoCrop } from './crop';
 import { alignPhotos, selectPhoto } from './selection';
 import type { Alignment } from './selection';
-import { reorderSlides } from './slides';
+import { deleteSlide, reorderSlides } from './slides';
 import { replacementPatch } from './replacement';
 import { useProject } from './useProject';
 import { createAsset } from './assets';
@@ -34,7 +34,7 @@ export default function App() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState('');
   const [dropActive, setDropActive] = useState(false);
-  const [menu, setMenu] = useState<({ kind: 'asset' | 'photo'; id: string } & ClientPoint) | null>(null);
+  const [menu, setMenu] = useState<(({ kind: 'asset' | 'photo'; id: string } | { kind: 'slide'; index: number }) & ClientPoint) | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const replaceTarget = useRef<{ projectId: string; photoId: string } | null>(null);
@@ -61,6 +61,7 @@ export default function App() {
     setSelectedIds((current) => selectPhoto(project.photos, current, id, additive));
   }, [project.photos]);
   const openAssetMenu = useCallback((id: string, point: ClientPoint) => setMenu({ kind: 'asset', id, ...point }), []);
+  const openSlideMenu = useCallback((index: number, point: ClientPoint) => setMenu({ kind: 'slide', index, ...point }), []);
   const openPhotoMenu = useCallback((id: string, point: ClientPoint) => {
     setSelectedIds((current) => current.includes(id) ? current : selectPhoto(project.photos, [], id, false));
     setMenu({ kind: 'photo', id, ...point });
@@ -228,7 +229,11 @@ export default function App() {
   const canForward = project.photos.some((photo, index) => selectedSet.has(photo.id) && index < project.photos.length - 1 && !selectedSet.has(project.photos[index + 1].id));
   const menuPhoto = menu?.kind === 'photo' ? photos.find((photo) => photo.id === menu.id) : undefined;
   let menuActions: MenuAction[] = [];
-  if (menu?.kind === 'asset') {
+  if (menu?.kind === 'slide') {
+    const index = menu.index;
+    menuActions = [{ label: 'Delete slide', icon: Trash2, danger: true, disabled: busy || project.slides <= 1,
+      onSelect: () => change((current) => deleteSlide(current, index)) }];
+  } else if (menu?.kind === 'asset') {
     const id = menu.id;
     const asset = project.assets.find((item) => item.id === id);
     menuActions = [{ label: 'Insert photo', icon: Plus, onSelect: () => { canvasRef.current?.insertAsset(id); } }];
@@ -297,7 +302,7 @@ export default function App() {
           </div>
           <div className="history-actions"><IconButton label="Undo (⌘Z)" disabled={!canUndo || busy} onClick={() => dispatch({ type: 'undo' })}><Undo2 size={16} /></IconButton><IconButton label="Redo (⇧⌘Z)" disabled={!canRedo || busy} onClick={() => dispatch({ type: 'redo' })}><Redo2 size={16} /></IconButton><span className="toolbar-divider" /><span className="dimensions">1080 × {height}</span></div>
         </div>
-        {slidesOpen && <SlideReorder project={project} photos={photos} disabled={busy} onReorder={(from, to) => change((current) => reorderSlides(current, from, to))}
+        {slidesOpen && <SlideReorder project={project} photos={photos} disabled={busy} onContextMenu={openSlideMenu} onReorder={(from, to) => change((current) => reorderSlides(current, from, to))}
           onClose={() => { setSlidesOpen(false); slideReorderTriggerRef.current?.focus(); }} />}
         {(error || storageError) && <div className="error-banner" role="alert"><span>{error || storageError}</span>{error && <IconButton label="Dismiss error" onClick={() => setError('')}><X size={14} /></IconButton>}</div>}
         <div className="canvas-area"><div className="canvas-heading"><span>{project.slides} slides · {project.aspect === 'portrait' ? '4:5' : '1:1'}</span></div>
@@ -310,7 +315,8 @@ export default function App() {
       </main>
     </div>
     {exporting && <ExportDialog project={project} onClose={() => setExporting(false)} />}
-    {menu && menuActions.length > 0 && <ContextMenu key={`${menu.kind}:${menu.id}`} point={menu} actions={menuActions} onClose={closeMenu} />}
+    {menu && menuActions.length > 0 && <ContextMenu key={`${menu.kind}:${menu.kind === 'slide' ? menu.index : menu.id}`}
+      label={menu.kind === 'slide' ? 'Slide actions' : 'Photo actions'} point={menu} actions={menuActions} onClose={closeMenu} />}
     {dropActive && <div className="drop-overlay"><ImagePlus size={40} /><strong>Drop images to add photos</strong></div>}
   </div>;
 }
