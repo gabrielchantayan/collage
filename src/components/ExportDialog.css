@@ -1,0 +1,262 @@
+.export-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: rgb(0 0 0 / 72%);
+}
+
+.export-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 960px);
+  max-height: calc(100dvh - 56px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 24px 100px rgb(0 0 0 / 40%);
+}
+
+.export-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 26px 28px 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+
+.export-header h2 {
+  margin: 0;
+  font-size: clamp(22px, 4vw, 30px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.export-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px;
+}
+
+.export-content {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 22px 28px 28px;
+}
+
+.export-description,
+.export-muted,
+.export-save-help {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.export-description {
+  margin: 0 0 22px;
+}
+
+.export-progress {
+  padding: 28px 0 36px;
+}
+
+.export-progress > p:first-child {
+  font-size: 15px;
+}
+
+.export-progress progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--accent);
+  accent-color: var(--accent);
+}
+
+.export-progress progress::-webkit-progress-bar {
+  background: var(--surface);
+}
+
+.export-progress progress::-webkit-progress-value {
+  background: var(--accent);
+}
+
+.export-progress progress::-moz-progress-bar {
+  background: var(--accent);
+}
+
+.export-error {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid #7e5145;
+  background: #30231f;
+  color: #f4c4b3;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.export-error p {
+  margin: 0 0 8px;
+}
+
+.export-error p:last-child {
+  margin-bottom: 0;
+}
+
+.export-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.export-actions > p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.export-zip,
+.export-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border-radius: 0;
+  font-size: 12px;
+}
+
+.export-zip {
+  padding: 11px 16px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.export-save-help {
+  margin: 16px 0 24px;
+}
+
+.export-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 26px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.export-slide {
+  min-width: 0;
+}
+
+.export-slide-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 9px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+.export-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--bg);
+  -webkit-touch-callout: default;
+  user-select: auto;
+  -webkit-user-select: auto;
+}
+
+.export-save {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 8px;
+}
+
+.export-download-link {
+  display: block;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 12px 6px 0;
+  color: var(--muted);
+  font-size: 11px;
+  text-underline-offset: 3px;
+}
+
+.export-download-link:hover {
+  color: var(--text);
+}
+
+.export-dialog :is(button, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.export-dialog button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.export-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .export-backdrop {
+    padding: 14px;
+  }
+
+  .export-dialog {
+    max-height: calc(100dvh - 28px);
+  }
+
+  .export-header {
+    padding: 20px 18px 17px;
+  }
+
+  .export-content {
+    padding: 18px;
+  }
+
+  .export-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px 12px;
+  }
+}
+
+@media (max-width: 390px) {
+  .export-actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .export-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
