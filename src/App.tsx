@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpRight, Check, ChevronDown, Copy, Crop, Download, Eye, EyeOff, Group, ImagePlus, Layers, Loader2, Lock, LockOpen, Minus, Plus, Redo2, Trash2, Undo2, Ungroup, X } from 'lucide-react';
+import { ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpRight, Check, ChevronDown, Copy, Crop, Download, Eye, EyeOff, Group, ImagePlus, Layers, Loader2, Lock, LockOpen, Minus, Plus, Redo2, SlidersHorizontal, Trash2, Undo2, Ungroup, X } from 'lucide-react';
 import CollageCanvas, { type CanvasHandle } from './components/CollageCanvas';
 import ExportDialog from './components/ExportDialog';
 import { IconButton } from './components/Controls';
@@ -29,6 +29,7 @@ export default function App() {
   const [multiSelect, setMultiSelect] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [slidesOpen, setSlidesOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 760px)').matches);
   const [exporting, setExporting] = useState(false);
   const [zoom, setZoom] = useState(() => window.innerWidth < 700 ? 0.23 : 0.28);
   const [importing, setImporting] = useState(false);
@@ -41,6 +42,8 @@ export default function App() {
   const workspaceRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<CanvasHandle>(null);
   const slideReorderTriggerRef = useRef<HTMLButtonElement>(null);
+  const layoutSettingsRef = useRef<HTMLDivElement>(null);
+  const photoLibraryRef = useRef<HTMLDivElement>(null);
   const importLock = useRef(false);
   const photos = useMemo(() => resolvePhotos(project), [project.assets, project.photos]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -88,7 +91,18 @@ export default function App() {
     setSelectedIds((current) => current.filter((id) => !removed.has(id)));
   }, [change]);
 
-  useEffect(() => { setSelectedIds([]); setMenu(null); setLayersOpen(false); setSlidesOpen(false); setError(''); }, [projectId]);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 760px)');
+    const update = () => setIsMobile(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  useEffect(() => {
+    setSelectedIds([]); setMenu(null); setLayersOpen(false); setSlidesOpen(false); setError('');
+    for (const panel of [layoutSettingsRef.current, photoLibraryRef.current]) {
+      if (panel?.matches(':popover-open')) panel.hidePopover();
+    }
+  }, [projectId]);
   useEffect(() => {
     const editable = new Set(project.photos.filter((photo) => !photo.locked && !photo.hidden).map((photo) => photo.id));
     setSelectedIds((current) => current.every((id) => editable.has(id)) ? current : current.filter((id) => editable.has(id)));
@@ -113,7 +127,10 @@ export default function App() {
           failed.push(file.name);
         }
       }
-      if (added.length) change((current) => ({ ...current, assets: [...current.assets, ...added] }));
+      if (added.length) {
+        change((current) => ({ ...current, assets: [...current.assets, ...added] }));
+        if (photoLibraryRef.current?.popover) photoLibraryRef.current.showPopover();
+      }
       if (quotaFailed.length) setError(`Browser storage full. ${quotaFailed.length} ${quotaFailed.length === 1 ? 'photo was' : 'photos were'} not imported. Existing project kept. Export a backup before clearing browser data, or use smaller files.`);
       else if (failed.length) setError(`Could not open ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? ` and ${failed.length - 3} more` : ''}. Supported formats: HEIC, JPEG, PNG, WebP.`);
     } finally { importLock.current = false; setImporting(false); }
@@ -201,7 +218,7 @@ export default function App() {
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (exporting || menu || !ready || busy || document.querySelector('[role="dialog"]')) return;
+      if (exporting || menu || !ready || busy || document.querySelector('[role="dialog"]:not([popover]), [popover]:popover-open')) return;
       if (event.target instanceof HTMLElement && (event.target.closest('input, textarea, select') || event.target.isContentEditable)) return;
       const command = event.metaKey || event.ctrlKey;
       if (command && event.key.toLowerCase() === 'z') {
@@ -265,6 +282,10 @@ export default function App() {
     ? <div className="loading-screen"><section className="load-error" role="alert"><h1>Could not open saved project</h1><p>{storageError}</p><button onClick={() => window.location.reload()}>Reload</button></section></div>
     : <div className="loading-screen"><Loader2 className="spin" size={22} /><span>Opening project…</span></div>;
 
+  const formatControl = <label className="select-field"><span>Format</span><div><select aria-label="Slide format" value={project.aspect} onChange={(event) => change((current) => ({ ...current, aspect: event.target.value as Project['aspect'] }))}><option value="portrait">Portrait · 4:5</option><option value="square">Square · 1:1</option></select><ChevronDown size={13} /></div></label>;
+  const slideCountControl = <div className="slide-count"><span>Slides</span><div><IconButton label="Remove slide" disabled={project.slides <= 1} onClick={() => change((current) => ({ ...current, slides: current.slides - 1 }))}><Minus size={14} /></IconButton><output aria-label="Slide count">{String(project.slides).padStart(2, '0')}</output><IconButton label="Add slide" disabled={project.slides >= MAX_SLIDES} onClick={() => change((current) => ({ ...current, slides: current.slides + 1 }))}><Plus size={14} /></IconButton></div></div>;
+  const backgroundControls = <div className="swatches">{backgrounds.map((color) => <button key={color} aria-label={`Background ${color}`} aria-pressed={project.background === color} className="swatch" style={{ background: color }} onClick={() => change((current) => ({ ...current, background: color }))}>{project.background === color && <Check size={15} color={color === '#171717' ? '#eee' : '#222'} />}</button>)}<label className="custom-swatch" title="Custom background"><Plus size={14} /><input type="color" aria-label="Custom background color" value={project.background} onChange={(event) => change((current) => ({ ...current, background: event.target.value }))} /></label></div>;
+
   return <div className="app-shell" onDragOver={(event) => { if (!busy && event.dataTransfer.types.includes('Files')) { event.preventDefault(); setDropActive(true); } }}
     onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropActive(false); }}
     onDrop={(event) => { event.preventDefault(); setDropActive(false); void importPhotos(Array.from(event.dataTransfer.files)); }}>
@@ -284,12 +305,21 @@ export default function App() {
     </header>
     <div className="editor-layout" inert={projectBusy || undefined}>
       <aside className="sidebar">
-        <section className="settings-section">
-          <div className="section-label">Layout</div>
-          <label className="select-field"><span>Format</span><div><select aria-label="Slide format" value={project.aspect} onChange={(event) => change((current) => ({ ...current, aspect: event.target.value as Project['aspect'] }))}><option value="portrait">Portrait · 4:5</option><option value="square">Square · 1:1</option></select><ChevronDown size={13} /></div></label>
-          <div className="slide-count"><span>Slides</span><div><IconButton label="Remove slide" disabled={project.slides <= 1} onClick={() => change((current) => ({ ...current, slides: current.slides - 1 }))}><Minus size={14} /></IconButton><output aria-label="Slide count">{String(project.slides).padStart(2, '0')}</output><IconButton label="Add slide" disabled={project.slides >= MAX_SLIDES} onClick={() => change((current) => ({ ...current, slides: current.slides + 1 }))}><Plus size={14} /></IconButton></div></div>
-        </section>
-        <section className="settings-section background-section"><div className="section-label">Background</div><div className="swatches">{backgrounds.map((color) => <button key={color} aria-label={`Background ${color}`} aria-pressed={project.background === color} className="swatch" style={{ background: color }} onClick={() => change((current) => ({ ...current, background: color }))}>{project.background === color && <Check size={15} color={color === '#171717' ? '#eee' : '#222'} />}</button>)}<label className="custom-swatch" title="Custom background"><Plus size={14} /><input type="color" aria-label="Custom background color" value={project.background} onChange={(event) => change((current) => ({ ...current, background: event.target.value }))} /></label></div><button className="mobile-layer-toggle" aria-expanded={layersOpen} onClick={() => setLayersOpen(!layersOpen)}><Layers size={14} />Layers</button></section>
+        {isMobile ? <>
+          {slideCountControl}
+          <button className="mobile-panel-toggle" popoverTarget="photo-library" aria-haspopup="dialog" disabled={busy} onClick={() => setLayersOpen(false)}><ImagePlus size={16} />Photos</button>
+          <button className="mobile-panel-toggle" popoverTarget="layout-settings" aria-haspopup="dialog" onClick={() => setLayersOpen(false)}><SlidersHorizontal size={16} />Layout</button>
+          <button className="mobile-panel-toggle" aria-expanded={layersOpen} onClick={() => setLayersOpen(!layersOpen)}><Layers size={16} />Layers</button>
+          <div id="layout-settings" className="mobile-settings-panel" ref={layoutSettingsRef} popover="auto" role="dialog" aria-label="Layout settings"
+            onToggle={(event) => { if (event.newState === 'open') event.currentTarget.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }); }}>
+            <header className="mobile-panel-heading"><span>Layout</span><button className="icon-button" aria-label="Close layout settings" popoverTarget="layout-settings" popoverTargetAction="hide"><X size={18} /></button></header>
+            {formatControl}
+            <section className="settings-section background-section"><div className="section-label">Background</div>{backgroundControls}</section>
+          </div>
+        </> : <>
+          <section className="settings-section"><div className="section-label">Layout</div>{formatControl}{slideCountControl}</section>
+          <section className="settings-section background-section"><div className="section-label">Background</div>{backgroundControls}</section>
+        </>}
         <section className={`settings-section photos-section ${layersOpen ? 'mobile-open' : ''}`}><div className="section-label section-label-row"><span>Layers</span><span>{String(project.photos.length).padStart(2, '0')}</span>{layersOpen && <IconButton label="Close layers" onClick={() => setLayersOpen(false)}><X size={14} /></IconButton>}</div>
           <LayersPanel photos={photos} selectedIds={selectedSet} multiSelect={multiSelect} onSelect={selectLayer} onContextMenu={openPhotoMenu} onToggleLock={(photo) => setLayerFlag(photo.id, 'locked', !photo.locked)} onToggleHidden={(photo) => setLayerFlag(photo.id, 'hidden', !photo.hidden)} />
         </section>
@@ -310,7 +340,14 @@ export default function App() {
           {project.photos.length === 0 && project.assets.length === 0 && <div className="empty-prompt"><button className="primary" onClick={() => inputRef.current?.click()} disabled={busy}>{importing ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}{importing ? 'Uploading…' : 'Upload photos'}</button><span className="empty-drop">or drop images here</span></div>}
         </div>
         <SelectionToolbar photos={selected} canBackward={canBackward} canForward={canForward} onChange={updatePhoto} onAlign={alignSelection} onGroup={groupPhotos} onUngroup={ungroupPhotos} onDuplicate={() => duplicatePhotos(selectedIds)} onDelete={() => deletePhotos(selectedIds)} onReplace={() => { if (selected.length === 1) requestReplacement(selected[0].id); }} onReorder={(direction) => reorderPhotos(selectedIds, direction)} />
-        <PhotoTray key={projectId} assets={project.assets} insertedAssetIds={insertedAssetIds} importing={importing} onUpload={() => inputRef.current?.click()} onInsert={(id) => { canvasRef.current?.insertAsset(id); }} onDrop={(id, point) => { canvasRef.current?.insertAsset(id, point); }} onDelete={deleteAsset} onContextMenu={openAssetMenu} />
+        <div id="photo-library" className="photo-library-panel" ref={photoLibraryRef} popover={isMobile ? 'auto' : undefined} role={isMobile ? 'dialog' : undefined} aria-label={isMobile ? 'Photo library' : undefined}
+          onToggle={(event) => { if (event.newState === 'open') event.currentTarget.querySelector<HTMLButtonElement>('.tray-close')?.focus({ preventScroll: true }); }}>
+          <PhotoTray key={projectId} assets={project.assets} insertedAssetIds={insertedAssetIds} importing={importing} onUpload={() => inputRef.current?.click()}
+            onInsert={(id) => { if (canvasRef.current?.insertAsset(id) && isMobile) photoLibraryRef.current?.hidePopover(); }}
+            onDrop={(id, point) => { if (canvasRef.current?.insertAsset(id, point) && isMobile) photoLibraryRef.current?.hidePopover(); }}
+            onDelete={deleteAsset} onContextMenu={(id, point) => { if (isMobile) photoLibraryRef.current?.hidePopover(); openAssetMenu(id, point); }}
+            onClose={isMobile ? () => photoLibraryRef.current?.hidePopover() : undefined} />
+        </div>
         <footer className="workspace-footer"><span><Layers size={14} />{project.photos.length} {project.photos.length === 1 ? 'photo' : 'photos'}<span className="footer-dot">·</span>Local storage</span><div className="zoom-controls"><IconButton label="Zoom out" disabled={zoom <= 0.1} onClick={() => setZoom(Math.max(0.1, zoom - 0.05))}><Minus size={14} /></IconButton><label><input aria-label="Canvas zoom" type="range" min="10" max="100" value={Math.round(zoom * 100)} onChange={(event) => setZoom(Number(event.target.value) / 100)} /></label><output>{Math.round(zoom * 100)}%</output><IconButton label="Zoom in" disabled={zoom >= 1} onClick={() => setZoom(Math.min(1, zoom + 0.05))}><Plus size={14} /></IconButton><button className="fit-button" onClick={() => setZoom(Math.max(0.1, Math.min(0.65, ((workspaceRef.current?.clientWidth ?? 1000) - 96) / (SLIDE_WIDTH * project.slides))))}>Fit</button></div></footer>
       </main>
     </div>

@@ -29,7 +29,9 @@
 
 
 @media (max-width: 760px) {
-  .slide-reorder-trigger { padding: 6px; }
-  .slide-reorder-trigger > span { display: none; }
+  .slide-reorder-trigger { min-width: 44px; min-height: 44px; padding: 6px; }
   .slide-reorder { padding: 8px 16px; gap: 8px; }
+  .slide-reorder > .icon-button { width: 44px; height: 44px; }
+  .slide-reorder-button { padding: 6px; border-color: var(--line); background: var(--bg); }
+  .slide-thumbnail { width: 44px; height: auto; }
 }

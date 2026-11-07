@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, ImagePlus, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ImagePlus, Loader2, Plus, Trash2, X } from 'lucide-react';
 import type { ImageAsset } from '../model';
 import './PhotoTray.css';
 
@@ -14,6 +14,7 @@ interface Props {
   onDrop: (id: string, point: ClientPoint) => void;
   onDelete: (id: string) => void;
   onContextMenu: (id: string, point: ClientPoint) => void;
+  onClose?: () => void;
 }
 
 type SortBy = 'upload' | 'filename' | 'taken';
@@ -33,7 +34,7 @@ function compareAssets(a: ImageAsset, b: ImageAsset, sortBy: SortBy, descending:
   return direction * (first! - second!);
 }
 
-export default function PhotoTray({ assets, insertedAssetIds, importing, onUpload, onInsert, onDrop, onDelete, onContextMenu }: Props) {
+export default function PhotoTray({ assets, insertedAssetIds, importing, onUpload, onInsert, onDrop, onDelete, onContextMenu, onClose }: Props) {
   const touch = useRef<{ id: string; x: number; y: number; dragging: boolean } | null>(null);
   const suppressClick = useRef(false);
   const [ghost, setGhost] = useState<{ asset: ImageAsset; x: number; y: number } | null>(null);
@@ -70,7 +71,7 @@ export default function PhotoTray({ assets, insertedAssetIds, importing, onUploa
   }, [showInserted, sortBy, descending]);
   useLayoutEffect(() => { if (viewportRef.current) setScroll(viewportRef.current.scrollLeft); }, [visibleAssets.length]);
   return <section className="photo-tray" aria-label="Photo library">
-    <header className="tray-header"><span>Photos <span className="tray-count">{visibleAssets.length}</span></span>
+    <header className="tray-header"><div className="tray-title-row"><span>Photos <span className="tray-count">{visibleAssets.length}</span></span>{onClose && <button className="tray-close" aria-label="Close photos" onClick={onClose}><X size={18} /></button>}</div>
       <div className="tray-header-actions">
         <select className="tray-sort" aria-label="Sort photos" value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)}>
           <option value="upload">Upload order</option>
@@ -106,7 +107,14 @@ export default function PhotoTray({ assets, insertedAssetIds, importing, onUploa
           onPointerMove={(event) => {
             const current = touch.current;
             if (!current || current.id !== asset.id) return;
-            if (Math.hypot(event.clientX - current.x, event.clientY - current.y) > 8) current.dragging = true;
+            const dx = Math.abs(event.clientX - current.x);
+            const dy = Math.abs(event.clientY - current.y);
+            if (!current.dragging && dx > 8 && dx > dy) {
+              suppressClick.current = true;
+              touch.current = null;
+              return;
+            }
+            if (dy > 8) current.dragging = true;
             if (current.dragging) setGhost({ asset, x: event.clientX, y: event.clientY });
           }}
           onPointerUp={(event) => {

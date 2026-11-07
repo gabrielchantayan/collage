@@ -55,8 +55,8 @@ collage.gabech.com {
 
 ## Controls
 
-- Upload with the file picker or file drag/drop. Photos stay in the bottom tray; uploads never place them automatically.
-- Click Insert or drag a tray photo onto a slide. Touch dragging is supported. Sources can be reused in multiple placements; deleting a placement keeps its tray photo.
+- Upload with the file picker or file drag/drop. Uploads never place photos automatically. Desktop keeps the photo tray visible; mobile opens it with Photos, or automatically after an upload.
+- Click Insert or drag a tray photo onto a slide. On mobile, swipe horizontally to browse the larger thumbnails, tap to insert, or drag vertically onto the canvas. A successful insertion closes the mobile picker. Sources can be reused in multiple placements; deleting a placement keeps its tray photo.
 - Inserted photos are hidden from the tray by default. Toggle Show inserted to reveal them.
 - Sort by upload order, natural filename, or EXIF capture date, in either direction. Photos without capture dates stay last; file modification dates are not substituted.
 - Right-click a tray photo to insert, replace the selected photo, or delete it. Canvas/layer menus include duplicate, layer order, crop reset, replacement, grouping, lock/hide and delete. Icon menus fit their longest action and support arrow keys and Escape.
@@ -67,10 +67,11 @@ collage.gabech.com {
 - Alignment/distribution acts on selected photos or whole groups. Distribution requires three independent photos/groups.
 - Replace from the photo tools/file picker or a tray photo's context menu. The frame's position, size, rotation and layer order stay fixed; the new source is center-cropped to fill it. The old source remains in the library.
 - Layer lock prevents selection/transforms; hidden layers are omitted from canvas and export. Group flags apply to every member. Use Layers on mobile to show/unlock them again.
-- Wheel or trackpad pinch zooms around the pointer; touch pinch zooms around its midpoint. Shift-scroll or horizontal trackpad scroll pans horizontally. Each wheel gesture stays in one mode despite diagonal noise; it never also scrolls vertically. Touch-drag empty canvas to pan. Fit shows the whole strip (minimum 10% zoom).
+- Mobile keeps the slide-count −/+ stepper visible. Layout opens the aspect ratio and background controls; Photos opens the upload library. Both popovers close with their close button, an outside tap, or Escape. The redundant slide/aspect summary, dimensions and zoom/local-storage footer are hidden to give the canvas more room.
+- Wheel or trackpad pinch zooms around the pointer; touch pinch zooms around its midpoint. Shift-scroll or horizontal trackpad scroll pans horizontally. Each wheel gesture stays in one mode despite diagonal noise; it never also scrolls vertically. Touch-drag empty canvas to pan. Desktop also offers zoom buttons and Fit, which shows the whole strip (minimum 10% zoom).
 - Arrow keys nudge selection; Shift moves 10px. Delete removes it. Cmd/Ctrl+Z undoes; Shift+Cmd/Ctrl+Z redoes.
 - Slides: 1–20. Portrait: 1080×1350; square: 1080×1080. Shrinking the strip hides out-of-bounds artwork; increasing it reveals it again.
-- Reorder slides toggles an inline toolbar with each slide number above its thumbnail—no modal or arrow buttons. Drag thumbnails to reorder, including on touch; dragging near an edge scrolls the strip. Keyboard: focus a thumbnail and use Left/Right.
+- Reorder slides toggles an inline toolbar with each slide number above its thumbnail—no modal or arrow buttons. Mobile uses smaller, bordered thumbnails to distinguish the reorder strip from the editing canvas. Drag thumbnails to reorder, including on touch; dragging near an edge scrolls the strip. Keyboard: focus a thumbnail and use Left/Right.
 - Every slide reorders independently. Photos follow the slide containing their visual centre; groups use the centre of their combined bounds and move together, including hidden/locked members. Crossing photos stay whole, so overlaps can change. Crop, size, rotation, stacking and grouping stay unchanged; one Undo restores the move. Centres on a seam use the slide to its right; off-strip centres use the nearest edge.
 - Right-click a slide thumbnail (or focus it and press Shift+F10) for Delete slide. Uses the same centre-based ownership: removes that slide's photo placements and whole groups, including hidden/locked members, then shifts later slides left. Uploaded originals stay available; one Undo restores everything. The final slide cannot be deleted.
 - Projects opens the project list: create, switch, rename, duplicate or delete. Edits save before switching; Undo history is scoped to the open project. Duplicates share originals until a photo is replaced.
