@@ -294,7 +294,16 @@ export default function App() {
     <input ref={replaceInputRef} type="file" accept={imageAccept} className="file-input" aria-label="Replace photo"
       onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceFromFile(file); event.target.value = ''; }} />
     <header className="app-header">
-      <a className="wordmark" href="./" aria-label="Collage home"><span className="brand-mark"><i /><i /><i /></span>collage<span className="brand-period">.</span></a>
+      <a className="wordmark" href="./" aria-label="Collage home">
+        <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <g fill="var(--bg)" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="miter">
+            <path d="M6 17 28 11V47L6 53Z" />
+            <path d="M21 17 43 11V47L21 53Z" stroke="var(--accent)" fill="var(--accent)" />
+            <path d="M36 17 58 11V47L36 53Z" />
+          </g>
+        </svg>
+        collage<span className="brand-period">.</span>
+      </a>
       <div className="project-title"><input aria-label="Project name" value={project.name} maxLength={80} disabled={busy}
         onChange={(event) => change((current) => ({ ...current, name: event.target.value }))} /></div>
       <div className="header-actions">

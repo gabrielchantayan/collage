@@ -102,5 +102,6 @@ Deleted sources remain available for the current tab's Undo history. On the next
 - `src/components/ContextMenu.tsx`: shared, viewport-clamped keyboard-accessible photo and slide actions.
 - `src/export.ts`: sequential full-resolution slide rendering, bounded decoded-source cache and ZIP generation.
 - `src/components/ExportDialog.tsx`: previews, native sharing, individual downloads.
+- `src/App.tsx`, `src/styles.css`: inline SVG logo with background-matched outer frames and a solid green centre. The 31px mark uses an 11px text gap and a 2px-right, 1.5px-down optical offset; mobile keeps the text-only wordmark.
 
 Modern browser required. HEIC/HEIF uploads convert locally to full-resolution PNG with `heic-to/csp`; JPEG, PNG and WebP retain their original source files. Editing uses bounded previews; exports use full-resolution sources and render one slide at a time rather than allocating a full 20-slide bitmap.

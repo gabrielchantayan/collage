@@ -20,12 +20,9 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-app
 .file-input { display: none; }
 .app-shell { min-height: 100dvh; }
 .app-header { height: 80px; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 30px; gap: 32px; }
-.wordmark { font-size: 26px; font-weight: 700; letter-spacing: -1.4px; display: inline-flex; align-items: center; width: 202px; flex-shrink: 0; }
+.wordmark { font-size: 26px; font-weight: 700; line-height: 1; letter-spacing: -1.4px; display: inline-flex; align-items: center; width: 202px; flex-shrink: 0; }
 .brand-period { color: var(--accent); }
-.brand-mark { width: 29px; height: 24px; position: relative; margin-right: 12px; }
-.brand-mark i { position: absolute; top: 2px; width: 13px; height: 20px; border: 1.5px solid var(--text); transform: skewY(-12deg); }
-.brand-mark i:nth-child(2) { left: 7px; border-color: var(--accent); top: 0; }
-.brand-mark i:nth-child(3) { left: 14px; top: 3px; }
+.brand-mark { width: 31px; height: 31px; flex-shrink: 0; margin-right: 11px; transform: translate(2px, 1.5px); }
 .project-title { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .project-title input { border: 1px solid transparent; background: transparent; width: 155px; padding: 7px 4px; font-size: 12px; }
 .project-title input:hover, .project-title input:focus { border-color: var(--line); }
