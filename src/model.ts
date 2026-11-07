@@ -7,6 +7,8 @@ export interface ImageAsset {
   thumbnail: string;
   naturalWidth: number;
   naturalHeight: number;
+  addedAt?: number;
+  takenAt?: number;
 }
 export interface Photo {
   id: string;
@@ -17,6 +19,9 @@ export interface Photo {
   height: number;
   rotation: number;
   crop: { x: number; y: number; width: number; height: number };
+  groupId?: string;
+  locked?: boolean;
+  hidden?: boolean;
 }
 export type ResolvedPhoto = Photo & Omit<ImageAsset, 'id'>;
 export interface Project {

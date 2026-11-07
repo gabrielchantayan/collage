@@ -1,0 +1,163 @@
+.project-manager-trigger {
+  flex-shrink: 0;
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.project-manager-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 24px 100px rgb(0 0 0 / 40%);
+}
+
+.project-manager-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.project-manager-dialog::backdrop {
+  background: rgb(0 0 0 / 72%);
+}
+
+.project-manager-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.project-manager-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.project-manager-header button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 8px;
+}
+
+.project-manager-content {
+  min-height: 0;
+  padding: 20px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.project-manager-content button {
+  min-height: 36px;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.project-manager-create {
+  width: 100%;
+}
+
+.project-manager-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 18px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project-manager-row {
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.project-manager-row[aria-current='true'] {
+  border-color: var(--muted);
+}
+
+.project-manager-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-manager-name input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  min-height: 36px;
+}
+
+.project-manager-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.project-manager-row-actions > :first-child {
+  margin-right: auto;
+}
+
+.project-manager-current,
+.project-manager-status {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.project-manager-backups {
+  display: flex;
+  gap: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.project-manager-backups button {
+  flex: 1;
+}
+
+.project-manager-file {
+  display: none;
+}
+
+.project-manager-status,
+.project-manager-error {
+  margin: 14px 0 0;
+  line-height: 1.6;
+}
+
+.project-manager-error {
+  color: #f4c4b3;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .project-manager-trigger {
+    width: 33px;
+    min-height: 33px;
+    padding: 7px;
+  }
+
+  .project-manager-trigger > span {
+    display: none;
+  }
+
+  .project-manager-header,
+  .project-manager-content {
+    padding: 16px;
+  }
+
+  .project-manager-row {
+    padding: 10px;
+  }
+}

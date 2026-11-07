@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ImagePlus, Loader2, Plus, Trash2 } from 'lucide-react';
 import type { ImageAsset } from '../model';
 import './PhotoTray.css';
 
@@ -16,6 +16,23 @@ interface Props {
   onContextMenu: (id: string, point: ClientPoint) => void;
 }
 
+type SortBy = 'upload' | 'filename' | 'taken';
+const filenameOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+function compareAssets(a: ImageAsset, b: ImageAsset, sortBy: SortBy, descending: boolean): number {
+  const direction = descending ? -1 : 1;
+  if (sortBy === 'filename') return direction * filenameOrder.compare(a.name, b.name);
+  const first = sortBy === 'taken' ? a.takenAt : a.addedAt;
+  const second = sortBy === 'taken' ? b.takenAt : b.addedAt;
+  const firstMissing = first === undefined || !Number.isFinite(first);
+  const secondMissing = second === undefined || !Number.isFinite(second);
+  if (firstMissing && secondMissing) return 0;
+  // Legacy uploads precede timestamped uploads; unknown capture dates always go last.
+  if (firstMissing) return sortBy === 'taken' ? 1 : -direction;
+  if (secondMissing) return sortBy === 'taken' ? -1 : direction;
+  return direction * (first! - second!);
+}
+
 export default function PhotoTray({ assets, insertedAssetIds, importing, onUpload, onInsert, onDrop, onDelete, onContextMenu }: Props) {
   const touch = useRef<{ id: string; x: number; y: number; dragging: boolean } | null>(null);
   const suppressClick = useRef(false);
@@ -24,7 +41,13 @@ export default function PhotoTray({ assets, insertedAssetIds, importing, onUploa
   const [scroll, setScroll] = useState(0);
   const [viewport, setViewport] = useState({ width: 800, stride: 102, cell: 92 });
   const [showInserted, setShowInserted] = useState(false);
-  const visibleAssets = useMemo(() => showInserted ? assets : assets.filter((asset) => !insertedAssetIds.has(asset.id)), [assets, insertedAssetIds, showInserted]);
+  const [sortBy, setSortBy] = useState<SortBy>('upload');
+  const [descending, setDescending] = useState(false);
+  const visibleAssets = useMemo(() => {
+    const filtered = showInserted ? [...assets] : assets.filter((asset) => !insertedAssetIds.has(asset.id));
+    // Array.sort is stable, so ties retain project upload order in either direction.
+    return filtered.sort((a, b) => compareAssets(a, b, sortBy, descending));
+  }, [assets, insertedAssetIds, showInserted, sortBy, descending]);
   const start = Math.max(0, Math.floor(scroll / viewport.stride) - 2);
   const end = Math.min(visibleAssets.length, Math.ceil((scroll + viewport.width) / viewport.stride) + 2);
   useLayoutEffect(() => {
@@ -41,12 +64,24 @@ export default function PhotoTray({ assets, insertedAssetIds, importing, onUploa
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+  useLayoutEffect(() => {
+    if (viewportRef.current) viewportRef.current.scrollLeft = 0;
+    setScroll(0);
+  }, [showInserted, sortBy, descending]);
   useLayoutEffect(() => { if (viewportRef.current) setScroll(viewportRef.current.scrollLeft); }, [visibleAssets.length]);
   return <section className="photo-tray" aria-label="Photo library">
     <header className="tray-header"><span>Photos <span className="tray-count">{visibleAssets.length}</span></span>
       <div className="tray-header-actions">
+        <select className="tray-sort" aria-label="Sort photos" value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)}>
+          <option value="upload">Upload order</option>
+          <option value="filename">Filename</option>
+          <option value="taken">Date taken</option>
+        </select>
+        <button className="tray-sort-direction" aria-label={descending ? 'Sort ascending' : 'Sort descending'} title={descending ? 'Descending' : 'Ascending'} onClick={() => setDescending((value) => !value)}>
+          {descending ? <ArrowDown size={13} /> : <ArrowUp size={13} />}
+        </button>
         <label className="tray-filter"><input type="checkbox" checked={showInserted} onChange={(event) => setShowInserted(event.target.checked)} />Show inserted</label>
-        <button onClick={onUpload} disabled={importing}>{importing ? <Loader2 size={13} className="spin" /> : <Plus size={13} />}{importing ? 'Uploading…' : 'Upload photos'}</button>
+        <button onClick={onUpload} disabled={importing}>{importing ? <Loader2 size={13} className="spin" /> : <Plus size={13} />}{importing ? 'Uploading…' : 'Upload'}</button>
       </div>
     </header>
     <div className="tray-scroll" ref={viewportRef} tabIndex={0} aria-label="Photo tray" onScroll={(event) => setScroll(event.currentTarget.scrollLeft)}>

@@ -77,7 +77,7 @@ export async function renderSlides(
       const bounds = { x: index * SLIDE_WIDTH, y: 0, width: canvas.width, height: canvas.height };
 
       for (const photo of project.photos) {
-        if (!photoIntersects(photo, bounds)) continue;
+        if (photo.hidden || !photoIntersects(photo, bounds)) continue;
         const image = await getImage(photo.assetId);
         context.save();
         context.translate(photo.x - index * SLIDE_WIDTH, photo.y);

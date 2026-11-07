@@ -1,3 +1,4 @@
+import { parse } from 'exifr';
 import { heicTo } from 'heic-to/csp';
 import { get, setMany } from 'idb-keyval';
 import { loadImage } from './model';
@@ -87,7 +88,25 @@ export async function storeAsset(blob: Blob, identity: { id: string; name: strin
 }
 
 export async function createAsset(file: File): Promise<ImageAsset> {
-  return storeAsset(file, { id: crypto.randomUUID(), name: file.name });
+  const addedAt = Date.now();
+  const [asset, takenAt] = await Promise.all([
+    storeAsset(file, { id: crypto.randomUUID(), name: file.name }),
+    readTakenAt(file),
+  ]);
+  return takenAt === undefined ? { ...asset, addedAt } : { ...asset, addedAt, takenAt };
+}
+
+async function readTakenAt(blob: Blob): Promise<number | undefined> {
+  try {
+    // Read the original HEIC/JPEG metadata before conversion can discard EXIF.
+    const metadata = await parse(blob, { pick: ['DateTimeOriginal', 'CreateDate'] });
+    for (const value of [metadata?.DateTimeOriginal, metadata?.CreateDate]) {
+      if (value instanceof Date && Number.isFinite(value.getTime())) return value.getTime();
+    }
+  } catch {
+    // Missing or malformed metadata must not prevent importing a valid photo.
+  }
+  return undefined;
 }
 
 export async function readSource(assetId: string): Promise<Blob> {

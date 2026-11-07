@@ -1,7 +1,8 @@
 import { memo, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
 import Konva from 'konva';
 import { Group, Image as CanvasImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva';
-import { photoIntersects, SLIDE_WIDTH, slideHeight, type Photo, type Project, type ResolvedPhoto } from '../model';
+import { photoIntersects, SLIDE_WIDTH, slideHeight, type Bounds, type Photo, type Project, type ResolvedPhoto } from '../model';
+import { selectPhoto, selectionBounds, selectionUnits } from '../selection';
 import { acquirePreview, releasePreview } from '../assets';
 import CropHandles from './CropHandles';
 import { ASSET_DRAG_TYPE, type ClientPoint } from './PhotoTray';
@@ -15,9 +16,10 @@ interface Props {
   photos: ResolvedPhoto[];
   onInsert: (id: string, worldPoint: ClientPoint) => void;
   ref?: Ref<CanvasHandle>;
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
-  onPhotoChange: (id: string, patch: Partial<Photo>) => void;
+  selectedIds: string[];
+  onSelect: (ids: string[]) => void;
+  onPhotosChange: (changes: { id: string; patch: Partial<Photo> }[]) => void;
+  multiSelect: boolean;
   onContextMenu: (id: string, point: ClientPoint) => void;
   zoom: number;
   onZoomChange: (zoom: number) => void;
@@ -28,20 +30,25 @@ const MIN_FRAME = 30;
 const clampZoom = (value: number) => Math.max(0.1, Math.min(1, value));
 type Guides = { x: number | null; y: number | null };
 const NO_GUIDES: Guides = { x: null, y: null };
+type PointerEvent = Konva.KonvaEventObject<MouseEvent | TouchEvent>;
+type DragState = { id: string; photos: Photo[]; bounds: Bounds };
+type TransformState = { photos: Photo[]; x: number; y: number; rotation: number; width: number; height: number };
+type MarqueeState = { start: ClientPoint; end: ClientPoint; ids: string[] };
 
 interface FrameProps {
   photo: ResolvedPhoto;
   pinching: boolean;
-  onSelect: Props['onSelect'];
-  onPhotoChange: Props['onPhotoChange'];
+  onSelect: (id: string, additive: boolean) => void;
+  multiSelect: boolean;
   onContextMenu: Props['onContextMenu'];
-  onDrag: (node: Konva.Group) => void;
-  onEnd: () => void;
+  onDragStart: (id: string, node: Konva.Group) => void;
+  onDragMove: (id: string, node: Konva.Group) => void;
+  onDragEnd: (id: string) => void;
   register: (id: string, node: Konva.Group | null) => void;
   onImageStatus: (id: string, failed: boolean) => void;
 }
 
-const PhotoFrame = memo(function PhotoFrame({ photo, pinching, onSelect, onPhotoChange, onContextMenu, onDrag, onEnd, register, onImageStatus }: FrameProps) {
+const PhotoFrame = memo(function PhotoFrame({ photo, pinching, onSelect, multiSelect, onContextMenu, onDragStart, onDragMove, onDragEnd, register, onImageStatus }: FrameProps) {
   const [image, setImage] = useState<HTMLImageElement>();
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -71,38 +78,21 @@ const PhotoFrame = memo(function PhotoFrame({ photo, pinching, onSelect, onPhoto
   } : undefined;
 
   return (
-    <Group
-      ref={registerNode}
+    <Group ref={registerNode}
       x={photo.x} y={photo.y} width={photo.width} height={photo.height} rotation={photo.rotation}
-      draggable={!pinching}
-      onMouseDown={(event) => { event.cancelBubble = true; onSelect(photo.id); }}
-      onTouchStart={(event) => { if (event.evt.touches.length === 1) { event.cancelBubble = true; onSelect(photo.id); } }}
+      listening={!photo.locked} draggable={!pinching && !photo.locked}
+      onMouseDown={(event) => { if (event.evt.button !== 0) return; event.cancelBubble = true; onSelect(photo.id, multiSelect || event.evt.shiftKey); }}
+      onTouchStart={(event) => {
+        if (event.evt.touches.length === 1) { event.cancelBubble = true; onSelect(photo.id, multiSelect); }
+      }}
       onContextMenu={(event) => {
         event.evt.preventDefault();
         event.cancelBubble = true;
         onContextMenu(photo.id, { x: event.evt.clientX, y: event.evt.clientY });
       }}
-      onDragStart={() => onSelect(photo.id)}
-      onDragMove={(event) => { if (event.currentTarget instanceof Konva.Group) onDrag(event.currentTarget); }}
-      onDragEnd={(event) => {
-        const node = event.target;
-        onPhotoChange(photo.id, { x: node.x(), y: node.y() });
-        onEnd();
-      }}
-      onTransform={(event) => {
-        const node = event.target;
-        node.scaleX(Math.max(MIN_FRAME / photo.width, node.scaleX()));
-        node.scaleY(Math.max(MIN_FRAME / photo.height, node.scaleY()));
-      }}
-      onTransformEnd={(event) => {
-        const node = event.target;
-        const width = Math.max(MIN_FRAME, photo.width * node.scaleX());
-        const height = Math.max(MIN_FRAME, photo.height * node.scaleY());
-        node.scale({ x: 1, y: 1 });
-        onPhotoChange(photo.id, { x: node.x(), y: node.y(), width, height, rotation: node.rotation() });
-        onEnd();
-      }}
-    >
+      onDragStart={(event) => { if (event.currentTarget instanceof Konva.Group) onDragStart(photo.id, event.currentTarget); }}
+      onDragMove={(event) => { if (event.currentTarget instanceof Konva.Group) onDragMove(photo.id, event.currentTarget); }}
+      onDragEnd={() => onDragEnd(photo.id)}>
       {image ? <CanvasImage image={image} width={photo.width} height={photo.height} crop={crop} /> : (
         <>
           <Rect width={photo.width} height={photo.height} fill={failed ? '#502e2e' : '#66645f'} />
@@ -115,20 +105,34 @@ const PhotoFrame = memo(function PhotoFrame({ photo, pinching, onSelect, onPhoto
   );
 });
 
-export default function CollageCanvas({ project, photos, selectedId, onSelect, onPhotoChange, onContextMenu, zoom, onZoomChange, onInsert, ref }: Props) {
+export default function CollageCanvas({ project, photos, selectedIds, onSelect, onPhotosChange, multiSelect, onContextMenu, zoom, onZoomChange, onInsert, ref }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
+  const selectionNodeRef = useRef<Konva.Rect>(null);
   const nodes = useRef(new Map<string, Konva.Group>());
+  const drag = useRef<DragState | null>(null);
+  const transform = useRef<TransformState | null>(null);
+  const marqueeRef = useRef<MarqueeState | null>(null);
+  const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const [viewport, setViewport] = useState({ width: 800, height: 500 });
   const [scroll, setScroll] = useState({ x: 0, y: 0 });
   const [guides, setGuides] = useState<Guides>(NO_GUIDES);
   const [pinching, setPinching] = useState(false);
+  const [interacting, setInteracting] = useState(false);
   const [errors, setErrors] = useState<Set<string>>(() => new Set());
   const [cropDraft, setCropDraft] = useState<ResolvedPhoto | null>(null);
-  const selectedPhoto = photos.find((photo) => photo.id === selectedId);
-  const activeDraft = cropDraft?.id === selectedId ? cropDraft : null;
+  const selectedPhotos = selectionUnits(photos, new Set(selectedIds)).flat();
+  const selectedSet = new Set(selectedPhotos.map((photo) => photo.id));
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedPhotos.map((photo) => photo.id);
+  const selectedPhoto = selectedPhotos.length === 1 ? photos.find((photo) => photo.id === selectedPhotos[0].id) : undefined;
+  const activeDraft = cropDraft?.id === selectedPhoto?.id ? cropDraft : null;
   const displayedPhoto = activeDraft ?? selectedPhoto;
+  const bounds = selectedPhoto && displayedPhoto
+    ? { x: displayedPhoto.x, y: displayedPhoto.y, width: displayedPhoto.width, height: displayedPhoto.height }
+    : selectionBounds(selectedPhotos);
+  const selectionRotation = displayedPhoto?.rotation ?? 0;
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   const zoomCallbackRef = useRef(onZoomChange);
@@ -150,7 +154,7 @@ export default function CollageCanvas({ project, photos, selectedId, onSelect, o
   };
   visibleBounds.width = Math.max(0, Math.min(width, (viewport.width - originX) / displayZoom + overscan) - visibleBounds.x);
   visibleBounds.height = Math.max(0, Math.min(height, (viewport.height - originY) / displayZoom + overscan) - visibleBounds.y);
-  const visiblePhotos = photos.filter((photo) => photo.id === selectedId || photoIntersects(photo, visibleBounds));
+  const visiblePhotos = photos.filter((photo) => !photo.hidden && (selectedSet.has(photo.id) || photoIntersects(photo, visibleBounds)));
   const clearGuides = useCallback(() => setGuides((previous) => previous.x === null && previous.y === null ? previous : NO_GUIDES), []);
 
   function insertAsset(id: string, clientPoint?: ClientPoint): boolean {
@@ -196,16 +200,17 @@ export default function CollageCanvas({ project, photos, selectedId, onSelect, o
 
   useLayoutEffect(() => {
     const transformer = transformerRef.current;
-    if (!transformer) return;
-    const node = selectedId ? nodes.current.get(selectedId) : undefined;
-    transformer.nodes(node ? [node] : []);
+    const node = selectionNodeRef.current;
+    if (!transformer || !node || transform.current) return;
+    transformer.nodes(selectedPhotos.length && !pinching ? [node] : []);
     transformer.getLayer()?.batchDraw();
-  }, [selectedId, project.photos, displayZoom, activeDraft]);
+  }, [selectedIds, project.photos, displayZoom, activeDraft, pinching, selectedPhotos.length]);
 
   useEffect(() => {
     const element = viewportRef.current;
     if (!element) return;
     let pinch: { distance: number; zoom: number; worldX: number; worldY: number } | null = null;
+    let wheelGesture: { mode: 'pan' | 'zoom'; time: number; modifiers: string } | null = null;
     const geometry = (touches: TouchList) => {
       const rect = element.getBoundingClientRect();
       return {
@@ -217,6 +222,8 @@ export default function CollageCanvas({ project, photos, selectedId, onSelect, o
     const start = (event: TouchEvent) => {
       if (event.touches.length !== 2) return;
       event.preventDefault();
+      marqueeRef.current = null;
+      setMarquee(null);
       const point = geometry(event.touches);
       const currentZoom = clampZoom(zoomRef.current);
       pinch = { distance: Math.max(1, point.distance), zoom: currentZoom,
@@ -232,6 +239,7 @@ export default function CollageCanvas({ project, photos, selectedId, onSelect, o
       const point = geometry(event.touches);
       const nextZoom = clampZoom(pinch.zoom * point.distance / pinch.distance);
       pendingScroll.current = { x: pinch.worldX * nextZoom + PADDING - point.x, y: pinch.worldY * nextZoom + PADDING - point.y };
+      zoomRef.current = nextZoom;
       zoomCallbackRef.current(nextZoom);
     };
     const end = (event: TouchEvent) => {
@@ -240,18 +248,32 @@ export default function CollageCanvas({ project, photos, selectedId, onSelect, o
       setPinching(false);
     };
     const wheel = (event: WheelEvent) => {
-      if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
       event.preventDefault();
+      const factorX = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientWidth : 1;
+      const factorY = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1;
+      const dx = event.deltaX * factorX;
+      const dy = event.deltaY * factorY;
+      const modifiers = `${event.shiftKey}:${event.ctrlKey}:${event.metaKey}`;
+      const time = performance.now();
+      if (!wheelGesture || time - wheelGesture.time > 160 || modifiers !== wheelGesture.modifiers) {
+        wheelGesture = { mode: event.ctrlKey || event.metaKey ? 'zoom' : event.shiftKey || Math.abs(dx) > Math.abs(dy) ? 'pan' : 'zoom', time, modifiers };
+      }
+      wheelGesture.time = time;
+      if (wheelGesture.mode === 'pan') {
+        // Shift maps a vertical mouse wheel onto X. Never alter scrollTop.
+        element.scrollLeft += event.shiftKey && Math.abs(dy) > Math.abs(dx) ? dy : dx;
+        return;
+      }
       const rect = element.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
       const currentZoom = clampZoom(zoomRef.current);
-      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1);
-      const nextZoom = clampZoom(currentZoom * Math.exp(-delta * (event.ctrlKey ? 0.01 : 0.002)));
+      const nextZoom = clampZoom(currentZoom * Math.exp(-dy * (event.ctrlKey || event.metaKey ? 0.01 : 0.002)));
       if (nextZoom === currentZoom) return;
+      const currentScroll = pendingScroll.current ?? { x: element.scrollLeft, y: element.scrollTop };
       pendingScroll.current = {
-        x: (element.scrollLeft + x - PADDING) / currentZoom * nextZoom + PADDING - x,
-        y: (element.scrollTop + y - PADDING) / currentZoom * nextZoom + PADDING - y,
+        x: (currentScroll.x + x - PADDING) / currentZoom * nextZoom + PADDING - x,
+        y: (currentScroll.y + y - PADDING) / currentZoom * nextZoom + PADDING - y,
       };
       zoomRef.current = nextZoom;
       zoomCallbackRef.current(nextZoom);
@@ -283,14 +305,33 @@ export default function CollageCanvas({ project, photos, selectedId, onSelect, o
     });
   }, []);
 
-  const snap = useCallback((node: Konva.Group) => {
-    const layer = node.getLayer();
-    if (!layer) return;
-    const bounds = node.getClientRect({ relativeTo: layer, skipStroke: true, skipShadow: true });
+  function choosePhoto(id: string, additive: boolean) {
+    if (!additive && selectedIdsRef.current.includes(id)) return;
+    const ids = selectPhoto(photos, selectedIdsRef.current, id, additive);
+    selectedIdsRef.current = ids;
+    onSelect(ids);
+  }
+
+  function beginDrag(id: string, node: Konva.Group) {
+    if (!selectedIdsRef.current.includes(id)) { node.stopDrag(); return; }
+    const members = selectionUnits(photos, new Set(selectedIdsRef.current)).flat();
+    drag.current = { id, photos: members, bounds: selectionBounds(members) };
+    setInteracting(true);
+  }
+
+  function moveDrag(id: string, node: Konva.Group) {
+    const current = drag.current;
+    if (!current || current.id !== id) return;
+    const original = current.photos.find((photo) => photo.id === id);
+    if (!original) return;
+    let dx = node.x() - original.x;
+    let dy = node.y() - original.y;
     const threshold = 7 / displayZoom;
-    const horizontalAnchors = [bounds.x, bounds.x + bounds.width / 2, bounds.x + bounds.width];
     let xDelta = threshold;
+    let yDelta = threshold;
     let xGuide: number | null = null;
+    let yGuide: number | null = null;
+    const horizontalAnchors = [current.bounds.x + dx, current.bounds.x + dx + current.bounds.width / 2, current.bounds.x + dx + current.bounds.width];
     for (let index = 0; index <= project.slides * 2; index++) {
       const target = index * SLIDE_WIDTH / 2;
       for (const anchor of horizontalAnchors) {
@@ -298,29 +339,133 @@ export default function CollageCanvas({ project, photos, selectedId, onSelect, o
         if (Math.abs(delta) < Math.abs(xDelta)) { xDelta = delta; xGuide = target; }
       }
     }
-    const verticalAnchors = [bounds.y, bounds.y + bounds.height / 2, bounds.y + bounds.height];
-    let yDelta = threshold;
-    let yGuide: number | null = null;
+    const verticalAnchors = [current.bounds.y + dy, current.bounds.y + dy + current.bounds.height / 2, current.bounds.y + dy + current.bounds.height];
     for (const target of [0, height / 2, height]) {
       for (const anchor of verticalAnchors) {
         const delta = target - anchor;
         if (Math.abs(delta) < Math.abs(yDelta)) { yDelta = delta; yGuide = target; }
       }
     }
-    if (xGuide !== null) node.x(node.x() + xDelta);
-    if (yGuide !== null) node.y(node.y() + yDelta);
+    if (xGuide !== null) dx += xDelta;
+    if (yGuide !== null) dy += yDelta;
+    for (const photo of current.photos) nodes.current.get(photo.id)?.position({ x: photo.x + dx, y: photo.y + dy });
+    const base = current.photos.length === 1 ? current.photos[0] : current.bounds;
+    selectionNodeRef.current?.position({ x: base.x + dx, y: base.y + dy });
     setGuides((previous) => previous.x === xGuide && previous.y === yGuide ? previous : { x: xGuide, y: yGuide });
-  }, [displayZoom, project.slides, height]);
+  }
 
-  const clearSelection = (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
-    if (event.target === event.target.getStage() || event.target.name() === 'canvas-background') onSelect(null);
-  };
-  const failedNames = photos.filter((photo) => errors.has(photo.id)).map((photo) => photo.name);
+  function finishDrag(id: string) {
+    const current = drag.current;
+    if (!current || current.id !== id) return;
+    drag.current = null;
+    const changes: { id: string; patch: Partial<Photo> }[] = [];
+    for (const photo of current.photos) {
+      const node = nodes.current.get(photo.id);
+      if (node && (node.x() !== photo.x || node.y() !== photo.y)) changes.push({ id: photo.id, patch: { x: node.x(), y: node.y() } });
+    }
+    if (changes.length) onPhotosChange(changes);
+    setInteracting(false);
+    clearGuides();
+  }
+
+  function beginTransform() {
+    const node = selectionNodeRef.current;
+    if (!node || !selectedPhotos.length) return;
+    transform.current = { photos: selectedPhotos, x: node.x(), y: node.y(), width: node.width(), height: node.height(), rotation: node.rotation() };
+    setInteracting(true);
+  }
+
+  function moveTransform() {
+    const current = transform.current;
+    const proxy = selectionNodeRef.current;
+    if (!current || !proxy) return;
+    const scale = proxy.scaleX();
+    const rotation = proxy.rotation() - current.rotation;
+    const angle = rotation * Math.PI / 180;
+    for (const photo of current.photos) {
+      const node = nodes.current.get(photo.id);
+      if (!node) continue;
+      const x = photo.x - current.x;
+      const y = photo.y - current.y;
+      node.position({ x: proxy.x() + (x * Math.cos(angle) - y * Math.sin(angle)) * scale, y: proxy.y() + (x * Math.sin(angle) + y * Math.cos(angle)) * scale });
+      node.scale({ x: scale, y: scale });
+      node.rotation(photo.rotation + rotation);
+    }
+    proxy.getStage()?.batchDraw();
+  }
+
+  function finishTransform() {
+    const current = transform.current;
+    const proxy = selectionNodeRef.current;
+    if (!current || !proxy) return;
+    moveTransform();
+    const scale = proxy.scaleX();
+    const changes: { id: string; patch: Partial<Photo> }[] = [];
+    for (const photo of current.photos) {
+      const node = nodes.current.get(photo.id);
+      if (!node) continue;
+      const patch = { x: node.x(), y: node.y(), width: photo.width * scale, height: photo.height * scale, rotation: node.rotation() };
+      node.scale({ x: 1, y: 1 });
+      node.size({ width: patch.width, height: patch.height });
+      if (patch.x !== photo.x || patch.y !== photo.y || patch.width !== photo.width || patch.height !== photo.height || patch.rotation !== photo.rotation) changes.push({ id: photo.id, patch });
+    }
+    proxy.size({ width: current.width * scale, height: current.height * scale });
+    proxy.scale({ x: 1, y: 1 });
+    transform.current = null;
+    if (changes.length) onPhotosChange(changes);
+    setInteracting(false);
+  }
+
+  function worldPointer(): ClientPoint | null {
+    const point = stageRef.current?.getPointerPosition();
+    return point ? { x: (point.x - originX) / displayZoom, y: (point.y - originY) / displayZoom } : null;
+  }
+
+  function beginMarquee(event: PointerEvent) {
+    if (event.target !== event.target.getStage() && event.target.name() !== 'canvas-background') return;
+    if ('touches' in event.evt && !multiSelect) {
+      if (event.evt.touches.length === 1) { selectedIdsRef.current = []; onSelect([]); }
+      return;
+    }
+    if ('touches' in event.evt && event.evt.touches.length !== 1 || 'button' in event.evt && event.evt.button !== 0) return;
+    const point = worldPointer();
+    if (!point) return;
+    const additive = multiSelect || 'shiftKey' in event.evt && event.evt.shiftKey;
+    const current = { start: point, end: point, ids: additive ? selectedIdsRef.current : [] };
+    marqueeRef.current = current;
+    setMarquee(current);
+    if (!additive) { selectedIdsRef.current = []; onSelect([]); }
+  }
+
+  function moveMarquee() {
+    const current = marqueeRef.current;
+    const point = worldPointer();
+    if (!current || !point) return;
+    const next = { ...current, end: point };
+    marqueeRef.current = next;
+    setMarquee(next);
+  }
+
+  function finishMarquee() {
+    const current = marqueeRef.current;
+    if (!current) return;
+    marqueeRef.current = null;
+    setMarquee(null);
+    if (Math.hypot(current.end.x - current.start.x, current.end.y - current.start.y) * displayZoom < 3) return;
+    const box = { x: Math.min(current.start.x, current.end.x), y: Math.min(current.start.y, current.end.y), width: Math.abs(current.end.x - current.start.x), height: Math.abs(current.end.y - current.start.y) };
+    const ids = new Set(current.ids);
+    for (const photo of photos) if (!photo.locked && !photo.hidden && photoIntersects(photo, box)) ids.add(photo.id);
+    const next = selectionUnits(photos, ids).flat().map((photo) => photo.id);
+    selectedIdsRef.current = next;
+    onSelect(next);
+  }
+
+  const failedNames = photos.filter((photo) => !photo.hidden && errors.has(photo.id)).map((photo) => photo.name);
 
   return (
     <div className="canvas-workspace" style={{ position: 'relative', minWidth: 0, minHeight: 0, height: '100%' }}>
-      <div ref={viewportRef} className="canvas-viewport" role="region" aria-label="Collage canvas. Select a photo; drag edges to crop or corners to resize. Scroll or pinch to zoom; Shift-scroll to pan."
-        tabIndex={0} style={{ width: '100%', height: '100%', minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain', position: 'relative' }}
+      <div ref={viewportRef} className="canvas-viewport" role="region" aria-label="Collage canvas. Shift-select or drag empty space to select photos. Drag edges to crop or corners to resize. Scroll or pinch to zoom; horizontal or Shift-scroll to pan."
+        tabIndex={0} style={{ width: '100%', height: '100%', minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain', touchAction: multiSelect ? 'none' : 'pan-x pan-y', position: 'relative' }}
         onScroll={(event) => setScroll({ x: event.currentTarget.scrollLeft, y: event.currentTarget.scrollTop })}
         onDragOver={(event) => { if (event.dataTransfer.types.includes(ASSET_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; } }}
         onDrop={(event) => {
@@ -332,11 +477,14 @@ export default function CollageCanvas({ project, photos, selectedId, onSelect, o
         }}>
         <div style={{ position: 'relative', width: contentWidth, height: contentHeight }}>
           <div style={{ position: 'sticky', top: 0, left: 0, width: viewport.width, height: viewport.height }}>
-            <Stage ref={stageRef} width={viewport.width} height={viewport.height} onMouseDown={clearSelection} onTouchStart={clearSelection}>
+            <Stage ref={stageRef} width={viewport.width} height={viewport.height}
+              onMouseDown={beginMarquee} onTouchStart={beginMarquee} onMouseMove={moveMarquee} onTouchMove={moveMarquee}
+              onMouseUp={finishMarquee} onTouchEnd={finishMarquee} onMouseLeave={finishMarquee}>
               <Layer x={originX} y={originY} scaleX={displayZoom} scaleY={displayZoom} clipX={0} clipY={0} clipWidth={width} clipHeight={height}>
-                <Rect name="canvas-background" width={width} height={height} fill={project.background} preventDefault={false} />
+                <Rect name="canvas-background" width={width} height={height} fill={project.background} preventDefault={multiSelect} />
                 {visiblePhotos.map((photo) => <PhotoFrame key={photo.id} photo={activeDraft?.id === photo.id ? activeDraft : photo} pinching={pinching}
-                  onSelect={onSelect} onPhotoChange={onPhotoChange} onContextMenu={onContextMenu} onDrag={snap} onEnd={clearGuides} register={register} onImageStatus={onImageStatus} />)}
+                  onSelect={choosePhoto} multiSelect={multiSelect} onContextMenu={onContextMenu}
+                  onDragStart={beginDrag} onDragMove={moveDrag} onDragEnd={finishDrag} register={register} onImageStatus={onImageStatus} />)}
               </Layer>
               <Layer x={originX} y={originY} scaleX={displayZoom} scaleY={displayZoom} listening={false}>
                 {Array.from({ length: project.slides }, (_, index) => <Group key={index}>
@@ -345,13 +493,24 @@ export default function CollageCanvas({ project, photos, selectedId, onSelect, o
                 </Group>)}
                 {guides.x !== null && <Line points={[guides.x, 0, guides.x, height]} stroke="#cae8a4" strokeWidth={1 / displayZoom} />}
                 {guides.y !== null && <Line points={[0, guides.y, width, guides.y]} stroke="#cae8a4" strokeWidth={1 / displayZoom} />}
+                {marquee && <Rect x={Math.min(marquee.start.x, marquee.end.x)} y={Math.min(marquee.start.y, marquee.end.y)}
+                  width={Math.abs(marquee.end.x - marquee.start.x)} height={Math.abs(marquee.end.y - marquee.start.y)} fill="rgba(210,237,171,0.12)" stroke="#d2edab" strokeWidth={1 / displayZoom} />}
               </Layer>
               <Layer x={originX} y={originY} scaleX={displayZoom} scaleY={displayZoom}>
-                <Transformer ref={transformerRef} flipEnabled={false} keepRatio={true} enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']} rotateEnabled={!pinching} resizeEnabled={!pinching}
+                <Rect ref={selectionNodeRef} {...bounds} rotation={selectionRotation} listening={false}
+                  onTransformStart={beginTransform} onTransform={moveTransform} onTransformEnd={finishTransform} />
+                <Transformer ref={transformerRef} flipEnabled={false} keepRatio shiftBehavior="none"
+                  enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']} rotateEnabled={!pinching && selectedPhotos.length === 1} resizeEnabled={!pinching}
                   borderStroke="#d2edab" anchorStroke="#222522" anchorFill="#d2edab" anchorSize={9} anchorCornerRadius={0}
                   rotateAnchorOffset={28} padding={0} rotationSnaps={[0, 90, 180, 270]} rotationSnapTolerance={4}
-                  boundBoxFunc={(oldBox, newBox) => newBox.width < MIN_FRAME * displayZoom || newBox.height < MIN_FRAME * displayZoom ? oldBox : newBox} />
-                {selectedPhoto && displayedPhoto && !pinching && <CropHandles photo={displayedPhoto} original={selectedPhoto} zoom={displayZoom} onPreview={setCropDraft} onCommit={onPhotoChange} />}
+                  boundBoxFunc={(oldBox, newBox) => {
+                    const current = transform.current;
+                    if (newBox.width <= 0 || newBox.height <= 0) return oldBox;
+                    if (!current) return newBox;
+                    const ratio = newBox.width / (current.width * displayZoom);
+                    return current.photos.some((photo) => photo.width * ratio < Math.min(MIN_FRAME, photo.width) || photo.height * ratio < Math.min(MIN_FRAME, photo.height)) ? oldBox : newBox;
+                  }} />
+                {selectedPhoto && displayedPhoto && !pinching && !interacting && <CropHandles photo={displayedPhoto} original={selectedPhoto} zoom={displayZoom} onPreview={setCropDraft} onCommit={(id, patch) => onPhotosChange([{ id, patch }])} />}
               </Layer>
             </Stage>
           </div>
